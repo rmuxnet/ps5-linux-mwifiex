@@ -2,6 +2,32 @@
 
 Single-patch PS5 IW620 port for NXP mwifiex.
 
+## Install
+
+Run from this package root:
+
+```sh
+sudo ./install.sh
+```
+
+Load the installed driver with:
+
+```sh
+sudo modprobe moal
+```
+
+If the firmware is not already installed at
+`/lib/firmware/nxp/pcieuartiw620_combo_v1.bin`, pass it to the installer:
+
+```sh
+sudo FIRMWARE_SRC=/path/to/pcieuartiw620_combo_v1.bin ./install.sh
+```
+
+The firmware should be installed automatically by the Linux loader:
+https://github.com/ps5-linux/ps5-linux-loader
+
+If it is not, please open an issue.
+
 ## Fresh Build
 
 Run from this package root:
@@ -36,6 +62,3 @@ Run from the built driver root:
 ```sh
 sudo DRIVER_DIR="$PWD" ../test-iw620.sh capture
 ```
-
-The patch does not add custom module flags. Disconnected scans are real scans;
-connected scans complete from cached results to avoid the firmware hang.
