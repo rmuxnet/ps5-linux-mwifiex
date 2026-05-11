@@ -9,24 +9,14 @@ Run from this package root:
 ```sh
 sudo ./install.sh
 ```
+If no boot `lib/` payload exists, the installer logs that and continues; this
+keeps kernel module upgrades independent from firmware delivery.
 
-Load the installed driver with:
-
-```sh
-sudo modprobe moal
-```
-
-If the firmware is not already installed at
-`/lib/firmware/nxp/pcieuartiw620_combo_v1.bin`, pass it to the installer:
+To remove the installed driver files:
 
 ```sh
-sudo FIRMWARE_SRC=/path/to/pcieuartiw620_combo_v1.bin ./install.sh
+sudo ./install.sh uninstall
 ```
-
-The firmware should be installed automatically by the Linux loader:
-https://github.com/ps5-linux/ps5-linux-loader
-
-If it is not, please open an issue.
 
 ## Fresh Build
 
