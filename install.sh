@@ -15,6 +15,7 @@ PATCH_FILE=$script_dir/ps5-iw620.patch
 MODULE_DIR=/lib/modules/$KERNEL_RELEASE/extra/ps5-iw620
 MODPROBE_CONF=/etc/modprobe.d/ps5-iw620.conf
 FW_NAME=nxp/pcieuartiw620_combo_v1.bin
+FW_PATH=/lib/firmware/$FW_NAME
 
 MOAL_OPTIONS="fw_name=$FW_NAME pcie_int_mode=1 drv_mode=1 cfg80211_wext=4 sta_name=mlan ext_scan=1 auto_fw_reload=0 wifi_reset_config=0 sched_scan=0 ps_mode=2 auto_ds=2 amsdu_disable=1"
 
@@ -89,15 +90,16 @@ build_driver() {
 }
 
 copy_boot_lib_payload() {
-	for dir in /boot/lib /boot/efi/lib /efi/lib; do
-		if [ -d "$dir" ]; then
-			say "Copying boot lib payload from $dir to /lib"
-			cp -a "$dir/." /lib/
-			return
-		fi
-	done
+	fw_src=/boot/efi/lib/$FW_NAME
 
-	say "No boot lib payload found; skipping firmware copy"
+	if [ ! -f "$fw_src" ]; then
+		say "Firmware not found at $fw_src; skipping firmware copy"
+		return
+	fi
+
+	say "Installing firmware to $FW_PATH"
+	install -d "$(dirname "$FW_PATH")"
+	install -m 0644 "$fw_src" "$FW_PATH"
 }
 
 write_modprobe_config() {
