@@ -94,10 +94,18 @@ index 1979042..343535f 100644
  MODULE_PARM_DESC(
  	bootup_cal_ctrl,
 diff --git a/mlinux/moal_pcie.c b/mlinux/moal_pcie.c
-index fc1eedb..acd8840 100644
+index fc1eedb..7a51ae5 100644
 --- a/mlinux/moal_pcie.c
 +++ b/mlinux/moal_pcie.c
-@@ -132,6 +132,7 @@ static const struct pci_device_id wlan_ids[] = {
+@@ -27,6 +27,7 @@ Change log:
+ ********************************************************/
+ 
+ #include <linux/firmware.h>
++#include <linux/irq.h>
+ 
+ #if defined(STA_CFG80211) || defined(UAP_CFG80211)
+ #include "moal_cfg80211.h"
+@@ -132,6 +133,7 @@ static const struct pci_device_id wlan_ids[] = {
  
  	{},
  };
@@ -105,6 +113,49 @@ index fc1eedb..acd8840 100644
  /* moal interface ops */
  static moal_if_ops pcie_ops;
  
+@@ -1259,6 +1261,7 @@ static irqreturn_t woal_pcie_interrupt(int irq, void *dev_id)
+ 	pcie_service_card *card;
+ 	moal_handle *handle;
+ 	mlan_status ret = MLAN_STATUS_SUCCESS;
++	struct irq_data *msi_d = NULL;
+ 
+ 	pdev = (struct pci_dev *)dev_id;
+ 	if (!pdev) {
+@@ -1266,6 +1269,16 @@ static irqreturn_t woal_pcie_interrupt(int irq, void *dev_id)
+ 		goto exit;
+ 	}
+ 
++	/* Mirror OrbisOS mvwl: mask MSI vector 0 via PVM (PCI cfg 0x60)
++	 * across the int-status read/clear, so any new FW-side event sets
++	 * the MSI Pending Bit and re-fires after unmask. Closes the edge
++	 * race that strands cmd-resp / TX_RESTART under load on IW620. */
++	if (pdev->msi_enabled) {
++		msi_d = irq_get_irq_data(pdev->irq);
++		if (msi_d)
++			pci_msi_mask_irq(msi_d);
++	}
++
+ 	card = (pcie_service_card *)pci_get_drvdata(pdev);
+ 	if (!card || !card->handle) {
+ 		PRINTM(MFATAL, "%s: card=%p handle=%p\n", __func__, card,
+@@ -1278,7 +1291,7 @@ static irqreturn_t woal_pcie_interrupt(int irq, void *dev_id)
+ 	if (handle->surprise_removed == MTRUE && handle->fw_reseting) {
+ 		PRINTM(MINFO, "*** SKIP INTR handling during FW reload ***\n");
+ 		ret = MLAN_STATUS_SUCCESS;
+-		return IRQ_HANDLED;
++		goto exit;
+ 	}
+ 	PRINTM(MINFO, "*** IN PCIE IRQ ***\n");
+ 	handle->main_state = MOAL_RECV_INT;
+@@ -1292,6 +1305,8 @@ static irqreturn_t woal_pcie_interrupt(int irq, void *dev_id)
+ 	ret = mlan_interrupt(0xffff, handle->pmlan_adapter);
+ 
+ exit:
++	if (msi_d)
++		pci_msi_unmask_irq(msi_d);
+ 	if (ret == MLAN_STATUS_SUCCESS)
+ 		return IRQ_HANDLED;
+ 	else
 diff --git a/mlinux/moal_shim.c b/mlinux/moal_shim.c
 index 7aebbdf..181c4f2 100644
 --- a/mlinux/moal_shim.c
